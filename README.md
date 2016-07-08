@@ -5,14 +5,24 @@ Hi! Here are a few interesting and fun things to do with Go and Docker.
 
 ## Go without `go`
 
-Most of you certainly have the Go compiler and toolchain installed.
-But what if you don't? Or what if you still have this old Go 1.2
-and you have to work on this codebase that requires a newer version
-of the toolchain? Or you want to play with the new cross compile
-stuff of 1.5? Or you want to have multiple versions side by side
-but don't want to completely litter your system?
+... And by that, we mean "Go without installing `go`".
 
-Docker to the rescue!
+Most of you certainly have the Go compiler and toolchain installed,
+so you might be wondering "what's the point?"; but there are
+a few scenarios where this can still be very useful.
+
+* You still have this old Go 1.2 on your machine (that you can't
+  or won't upgrade), and you have to work on this codebase that
+  requires a newer version of the toolchain.
+* You want to play with cross compilation features of Go 1.5
+  (for instance, to make sure that you can create OS X binaries
+  from a Linux system).
+* You want to have multiple versions of Go side-by-side, but don't
+  want to completely litter your system.
+* You want to be 100% sure that your project and all its dependencies
+  download, build, and run fine on a clean system.
+
+If any of this is relevant to you, then let's call Docker to the rescue!
 
 
 ### Compiling a program in a container
@@ -105,7 +115,7 @@ Wait a minute, what are all those bells and whistles?
   only if the left hand side evaluates to `true`.
 * We pass our commands to `sh -c`, because if we were to
   simply do `docker run golang "go get ... && hello"`,
-  Docker would try to execute the program named `docker SPACE run
+  Docker would try to execute the program named `go SPACE get
   SPACE etc.` and that wouldn't work. So instead, we start
   a shell and instruct the shell to execute the command
   sequence.
@@ -296,6 +306,112 @@ docker run --rm \
 ```
 
 
+## The special case of the `net` package and CGo
+
+Before diving into real-world Go code, we have to confess something:
+we lied a little bit about the static binaries. If you are using CGo,
+or if you are using the `net` package, the Go linker will generate
+a dynamic binary. In the case of the `net` package (which a *lot*
+of useful Go programs out there are using indeed!), the main culprit
+is the DNS resolver. Most systems out there have a fancy, modular name
+resolution system (like the *Name Service Switch*) which relies on
+plugins which are, technically, dynamic libraries. By default,
+Go will try to use that; and to do so, it will produce dynamic
+libraries.
+
+How do we work around that?
+
+
+### Re-using another distro's libc
+
+One solution is to use a base image that *has* the essential
+libraries needed by those Go programs to function. Almost any
+"regular" Linux distro based on the GNU libc will do the trick.
+So instead of `FROM scratch`, you would use `FROM debian` or
+`FROM fedora`, for instance. The resulting image will be much
+bigger now; but at least, the bigger bits will be shared with
+other images on your system.
+
+Note: you *cannot* use Alpine
+in that case, since Alpine is using the musl library instead 
+of the GNU libc.
+
+
+### Bring your own libc
+
+Another solution is to surgically extract the files needed,
+and place them in your container with `COPY`. The resulting
+container will be small. However, this extraction process
+leaves the author with the uneasy impression of a really
+dirty job, and they would rather not go into more details.
+
+If you want to see for yourself, look around `ldd` and the
+Name Service Switch plugins mentioned earlier.
+
+
+### Producing static binaries with `netgo`
+
+We can also instruct Go to *not* use the system's libc, and
+substitute Go's `netgo` library, which comes with a native
+DNS resolver.
+
+To use it, just add `-tags netgo -installsuffix netgo` to
+the `go get` options.
+
+- `-tags netgo` instructs the toolchain to use netgo.
+* `-installsuffix netgo` will make sure that the resulting
+  libraries (if any) are placed in a different, non-default
+  directory. This will avoid conflicts between code built
+  with and without netgo, if you do multiple `go get`
+  (or `go build`) invocations. If you build in containers 
+  like we have shown so far, this is not strictly necessary,
+  since there will be no other Go code compiled in this
+  container, ever; but it's a good idea to get used to it,
+  or at least know that this flag exists.
+
+
+## The special case of SSL certificates
+
+There is one more thing that you have to worry about if
+your code has to validate SSL certificates; for instance
+if it will connect to external APIs over HTTPS. In that
+case, you need to put the root certificates in your
+container too, because Go won't bundle those into your
+binary.
+
+
+### Installing the SSL certificates
+
+Three again, there are multiple options available, but
+the easiest one is to use a package from an existing
+distribution.
+
+Alpine is a good candidate here because it's so tiny.
+The following `Dockerfile` will give you a base image
+that is small, but has an up-to-date bundle of root
+certificates:
+
+```dockerfile
+FROM alpine:3.4
+RUN apk add --no-cache ca-certificates apache2-utils
+```
+
+Check it out; the resulting image is only 6 MB!
+
+Note: the `--no-cache` option tells `apk` (the Alpine
+package manager) to get the list of available packages
+from Alpine's distribution mirrors, without saving it
+to disk. You might have seen Dockerfiles doing something
+like `apt-get update && apt-get install ... && rm -rf /var/cache/apt/*`;
+this achieves something equivalent (i.e. not leave package
+caches in the final image) with a single flag.
+
+*As an added bonus,* putting your application in a container
+based on the Alpine image gives you access to a ton of really
+useful tools: now you can drop a shell into your container
+and poke around while it's running, if you need to!
+
+
 ## Rewriting simple micro-services in Go
 
 Still with us? Great! Now that we know how to build simple Go programs
@@ -321,9 +437,11 @@ docker-compose up -d
 
 The build will take a few minutes (or a while, if the internet connection
 is slow); then, once the application is running, point your browser
-to port 8000 of your Docker installation (http://localhost:8000/ on Linux,
-http://docker.local:8000/ with Docker Mac... If you are using Docker Machine,
-use `docker-machine ip` to see the IP address of your Docker VM).
+to port 8000 of your Docker installation. If you are on Linux, or using
+Docker Mac, that will be http://localhost:8000; with some older betas
+of Docker Mac, you might have to use http://docker.local:8000/; and
+if you are using Docker Machine,
+use `docker-machine ip` to see the IP address of your Docker VM..
 
 The app should show a performance graph that will be around 3-4 units
 per second.
