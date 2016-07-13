@@ -291,7 +291,7 @@ But you can also mount local directories to specific paths, to "override" some
 packages (the ones that you have edited locally). Here is a complete example:
 
 ```bash
-# Adapt the two folowing environment variables if you are not running on a Mac
+# Adapt the two following environment variables if you are not running on a Mac
 export GOOS=darwin GOARCH=amd64
 mkdir go-and-docker-is-love
 cd go-and-docker-is-love
