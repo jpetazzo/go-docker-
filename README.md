@@ -1,3 +1,5 @@
+![QR code for this page](qrcode.png)
+
 # Go + Docker = ♥
 
 Hi! Here are a few interesting and fun things to do with Go and Docker.
