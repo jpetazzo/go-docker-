@@ -509,10 +509,30 @@ If you do it "right", you will either see the same performance
 (if you handle concurrent requests).
 
 
-## Building lean containers with Docker Compose
+### Building lean containers with Docker Compose
 
 Note that instead of just building with `docker-compose build`, now
 you need to build in two steps:
 * first, compile your Go binaries;
 * then, build your Docker images using those binaries.
 
+## Hacking on Docker itself
+
+If you want to work use your Go skills to improve Docker itself, here are a few
+suggestions of GitHub issues targeted for Docker 1.12 that could use your help.
+These range from the beginner level to the intermediate level.
+
+- networking/swarm mode: Make gossip timeout configurable: https://github.com/docker/docker/issues/24557
+- Proposal: Replace secrets with "join tokens": https://github.com/docker/docker/issues/24430
+- `docker swarm join` should take multiple addresses: https://github.com/docker/docker/issues/24085
+- Improve cli help for --update-delay flag: https://github.com/docker/docker/issues/24083
+- [1.12-rc2] daemon.ID should be replaced with swarm NodeID: https://github.com/docker/docker/issues/24095
+- Allow forcing all swarm tasks to reschedule for a service: https://github.com/docker/docker/issues/24469
+- docker swarm update without arguments should show usage: https://github.com/docker/docker/issues/24352
+- Increase integration test coverage of swarm mode: https://github.com/docker/docker/issues/24240
+- Swarm Integration Test Suite is Poorly Documented: https://github.com/docker/docker/issues/24564
+
+Of course, there are plenty of other things to work on. You can look at
+Docker's issue tracker on GitHub for ideas: https://github.com/docker/docker/issues
+
+Feel free to ask us for help or advice!
